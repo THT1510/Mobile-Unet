@@ -90,3 +90,14 @@ def create_metrics():
     }
     
     return metrics
+
+def create_segmentation_metrics():
+    """Create metrics for segmentation-only tasks"""
+    seg_metrics = SegmentationMetrics()
+    
+    metrics = {
+        'seg_dice': seg_metrics.dice_coef_metric,
+        'seg_iou': seg_metrics.iou,
+    }
+    
+    return metrics

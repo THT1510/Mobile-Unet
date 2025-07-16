@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from metrics import create_metrics
+from metrics import create_segmentation_metrics
 from src.model import MobileNetUNet
 from dataset import get_data_loaders
 from trainer import ModelTrainer
@@ -14,7 +14,7 @@ def main():
     CONFIG = {
         'data_dir': r"d:\FPT BT\DSP391\train_model\Mobile-unet\dataset_split",
         'batch_size': 16,
-        'num_workers': 5,
+        'num_workers': 4,  # Reduced from 5 to 4 to avoid warning
         'learning_rate': 0.0025,
         'num_epochs': 150,
         'patience': 100,
@@ -45,7 +45,7 @@ def main():
     print(f"Number of validation samples: {len(val_loader.dataset)}")
 
     # 3. Setup metrics
-    metrics = create_metrics()
+    metrics = create_segmentation_metrics()
 
     # 4. Initialize optimizer and loss functions
     optimizer = Adam(
@@ -64,7 +64,7 @@ def main():
         mode='max',
         patience=10,
         factor=0.5,
-        verbose=True,
+        verbose=False,  # Changed from True to False to avoid deprecation warning
         min_lr=0.0001
     )
 
