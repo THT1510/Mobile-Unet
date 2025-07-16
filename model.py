@@ -89,7 +89,7 @@ class MobileNetUNet(nn.Module):
         )
 
         # Enhanced classification head (only if needed)
-        if not self.seg_only:
+        if not self.seg_only and num_classes is not None:
             self.cls_head = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Flatten(),
@@ -135,7 +135,7 @@ class MobileNetUNet(nn.Module):
         e5 = self.encoder5(e4)     # 1/32
 
         # Classification branch (only if needed)
-        if not self.seg_only:
+        if not self.seg_only and self.cls_head is not None:
             cls_output = self.cls_head(e5)
         else:
             cls_output = None

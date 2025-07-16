@@ -68,23 +68,22 @@ def main():
         min_lr=0.0001
     )
 
-    # 6. Initialize trainer
+    # 6. Initialize trainer (simplified for segmentation only)
     trainer = ModelTrainer(
         model=model,
         dataloaders={
             'train': train_loader,
             'val': val_loader
         },
-        criterion_seg=criterion.seg_criterion,
-        criterion_cls=criterion.cls_criterion,
+        criterion_seg=criterion,  # Use criterion directly
+        criterion_cls=None,       # No classification loss
         optimizer=optimizer,
         scheduler=scheduler,
         metrics=metrics,
         device=CONFIG['device'],
         patience=CONFIG['patience'],
         task_weights={
-            'seg': CONFIG['seg_weight'],
-            'cls': CONFIG['cls_weight']
+            'seg': CONFIG['seg_weight']
         }
     )
 

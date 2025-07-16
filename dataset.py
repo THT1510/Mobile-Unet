@@ -12,20 +12,12 @@ class SegmentationDataset(Dataset):
         self.transform = transform
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
         
-        # Get paths for single tumor folder
-        self.images_dir = os.path.join(root_dir, split, 'image', 'tumor')
-        self.masks_dir = os.path.join(root_dir, split, 'mask', 'tumor')
+        # Get paths - adjust based on your actual folder structure
+        self.images_dir = os.path.join(root_dir, split, 'image')
+        self.masks_dir = os.path.join(root_dir, split, 'mask')
         
         # Create list of (image_path, mask_path) tuples
         self.image_mask_pairs = []
-        
-        for img_name in os.listdir(self.images_dir):
-            mask_name = os.path.splitext(img_name)[0] + '.png'
-            img_path = os.path.join(self.images_dir, img_name)
-            mask_path = os.path.join(self.masks_dir, mask_name)
-            
-            if os.path.exists(mask_path):
-                self.image_mask_pairs.append((img_path, mask_path))
 
     def __len__(self):
         return len(self.image_mask_pairs)
