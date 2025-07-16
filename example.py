@@ -1,8 +1,9 @@
 import os
 import torch
+import torch.nn as nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from metrics import create_metrics, DualTaskLoss
+from metrics import create_metrics
 from src.model import MobileNetUNet
 from dataset import get_data_loaders
 from trainer import ModelTrainer
@@ -18,8 +19,7 @@ def main():
         'num_epochs': 150,
         'patience': 100,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'seg_weight': 1.2,
-        'cls_weight': 0.4,                              
+        'seg_weight': 1.0,  # Only segmentation weight needed
         'save_dir': 'checkpoint_new'  
     }
 
@@ -29,8 +29,8 @@ def main():
     # 1. Initialize model
     model = MobileNetUNet(                         
         img_ch=1,
-        seg_ch=2,  # Changed from 4 to 2: background + tumor
-        num_classes=3
+        seg_ch=2,  # Binary segmentation: background + tumor
+        num_classes=None  # No classification needed
     ).to(CONFIG['device'])
 
     # 2. Create data loaders
@@ -55,10 +55,8 @@ def main():
         betas=(0.9, 0.999)
     )
     
-    criterion = DualTaskLoss(
-        seg_weight=CONFIG['seg_weight'],
-        cls_weight=CONFIG['cls_weight']
-    )
+    # Only segmentation loss needed
+    criterion = nn.CrossEntropyLoss()
     
     # 5. Initialize scheduler
     scheduler = ReduceLROnPlateau(

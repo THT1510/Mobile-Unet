@@ -5,50 +5,37 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 
-class SegmentationClassificationDataset(Dataset):
+class SegmentationDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None, img_size=(256, 256)):
-        # Giữ nguyên phần khởi tạo
         self.root_dir = root_dir
         self.split = split
         self.transform = transform
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
-        self.num_classes = 3  # For classification
-        self.num_seg_classes = 2  # For segmentation: background + tumor
         
-        # Get paths
-        self.images_dir = os.path.join(root_dir, split, 'image')
-        self.masks_dir = os.path.join(root_dir, split, 'mask')
+        # Get paths for single tumor folder
+        self.images_dir = os.path.join(root_dir, split, 'image', 'tumor')
+        self.masks_dir = os.path.join(root_dir, split, 'mask', 'tumor')
         
-        # Create class to index mapping
-        self.class_to_idx = {}
-        for idx, class_name in enumerate(sorted(os.listdir(self.images_dir))):
-            self.class_to_idx[class_name] = idx
-            
-        # Create list of (image_path, mask_path, class_label) tuples
+        # Create list of (image_path, mask_path) tuples
         self.image_mask_pairs = []
         
-        for class_name in os.listdir(self.images_dir):
-            class_img_dir = os.path.join(self.images_dir, class_name)
-            class_mask_dir = os.path.join(self.masks_dir, class_name)
-            class_idx = self.class_to_idx[class_name]
+        for img_name in os.listdir(self.images_dir):
+            mask_name = os.path.splitext(img_name)[0] + '.png'
+            img_path = os.path.join(self.images_dir, img_name)
+            mask_path = os.path.join(self.masks_dir, mask_name)
             
-            for img_name in os.listdir(class_img_dir):
-                mask_name = os.path.splitext(img_name)[0] + '.png'
-                img_path = os.path.join(class_img_dir, img_name)
-                mask_path = os.path.join(class_mask_dir, mask_name)
-                
-                if os.path.exists(mask_path):
-                    self.image_mask_pairs.append((img_path, mask_path, class_idx))
+            if os.path.exists(mask_path):
+                self.image_mask_pairs.append((img_path, mask_path))
 
     def __len__(self):
         return len(self.image_mask_pairs)
     
     def __getitem__(self, idx):
-        img_path, mask_path, class_label = self.image_mask_pairs[idx]
+        img_path, mask_path = self.image_mask_pairs[idx]
         
         # Load image and mask
-        image = Image.open(img_path).convert('L')  # Đảm bảo ảnh đầu vào là grayscale
-        mask = Image.open(mask_path).convert('L')  # Chuyển mask về grayscale
+        image = Image.open(img_path).convert('L')  # Grayscale image
+        mask = Image.open(mask_path).convert('L')  # Grayscale mask
         
         # Resize images
         image = image.resize(self.img_size, Image.Resampling.BILINEAR)
@@ -71,28 +58,27 @@ class SegmentationClassificationDataset(Dataset):
         
         # Convert to tensors
         image = torch.from_numpy(image_np).float() / 255.0
-        image = image.unsqueeze(0)  # Thêm kênh (1, H, W)
-        image = (image - 0.5) / 0.5  # Chuẩn hóa về [-1, 1]
+        image = image.unsqueeze(0)  # Add channel dimension (1, H, W)
+        image = (image - 0.5) / 0.5  # Normalize to [-1, 1]
         
-        mask = torch.from_numpy(mask_np).long()  # Đảm bảo mask là tensor Long
-        class_label = torch.tensor(class_label, dtype=torch.long)
+        mask = torch.from_numpy(mask_np).long()  # Ensure mask is Long tensor
         
         if self.transform:
             image = self.transform(image)
         
-        return image, mask, class_label
+        return image, mask
 
 
 def get_data_loaders(root_dir, batch_size=8, num_workers=4):
     """Create data loaders for train and validation sets"""
     # Create datasets
-    train_dataset = SegmentationClassificationDataset(
+    train_dataset = SegmentationDataset(
         root_dir=root_dir,
         split='train',
         img_size=(256, 256)
     )
     
-    val_dataset = SegmentationClassificationDataset(
+    val_dataset = SegmentationDataset(
         root_dir=root_dir,
         split='val',
         img_size=(256, 256)

@@ -53,6 +53,9 @@ class MobileNetUNet(nn.Module):
     def __init__(self, img_ch=1, seg_ch=4, num_classes=3):
         super().__init__()
         
+        self.num_classes = num_classes
+        self.seg_only = num_classes is None  # If num_classes is None, do segmentation only
+        
         # Load pretrained MobileNetV2
         self.backbone = mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         
@@ -85,20 +88,23 @@ class MobileNetUNet(nn.Module):
             nn.Conv2d(16, seg_ch, kernel_size=1)
         )
 
-        # Enhanced classification head
-        self.cls_head = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(1280, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(256, num_classes)
-        )
+        # Enhanced classification head (only if needed)
+        if not self.seg_only:
+            self.cls_head = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.Linear(1280, 512),
+                nn.BatchNorm1d(512),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.5),
+                nn.Linear(512, 256),
+                nn.BatchNorm1d(256),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.3),
+                nn.Linear(256, num_classes)
+            )
+        else:
+            self.cls_head = None
 
         # Initialize weights
         self._initialize_weights()
@@ -128,8 +134,11 @@ class MobileNetUNet(nn.Module):
         e4 = self.encoder4(e3)     # 1/16
         e5 = self.encoder5(e4)     # 1/32
 
-        # Classification branch
-        cls_output = self.cls_head(e5)
+        # Classification branch (only if needed)
+        if not self.seg_only:
+            cls_output = self.cls_head(e5)
+        else:
+            cls_output = None
 
         # Decoder path with skip connections
         d4 = self.decoder4(e5, e4)  # 1/16 -> 1/8
@@ -150,7 +159,10 @@ class MobileNetUNet(nn.Module):
                 align_corners=True
             )
 
-        return seg_output, cls_output
+        if self.seg_only:
+            return seg_output
+        else:
+            return seg_output, cls_output
 
 
 
