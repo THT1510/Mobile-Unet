@@ -129,13 +129,17 @@ class ModelTrainer:
                         value = metric_fn(cls_outputs, labels).item()
                         running_metrics[name] += value
                 
-                # Calculate averages
+                # Calculate averages - only include metrics that have been updated
                 avg_metrics = {
                     'loss': running_loss['total'] / (batch_idx + 1),
                     'seg_loss': running_loss['seg'] / (batch_idx + 1),
                     'cls_loss': running_loss['cls'] / (batch_idx + 1),
-                    **{k: v / (batch_idx + 1) for k, v in running_metrics.items()}
                 }
+                
+                # Only add metrics that have been calculated (non-zero values)
+                for k, v in running_metrics.items():
+                    if v > 0 or k.startswith('seg_'):  # Always include segmentation metrics
+                        avg_metrics[k] = v / (batch_idx + 1)
                 
                 # Update progress bar
                 batch_time = pbar.format_dict["elapsed"] / (batch_idx + 1)
