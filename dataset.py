@@ -12,7 +12,8 @@ class SegmentationClassificationDataset(Dataset):
         self.split = split
         self.transform = transform
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
-        self.num_classes = 3
+        self.num_classes = 3  # For classification
+        self.num_seg_classes = 2  # For segmentation: background + tumor
         
         # Get paths
         self.images_dir = os.path.join(root_dir, split, 'image')
@@ -57,15 +58,16 @@ class SegmentationClassificationDataset(Dataset):
         image_np = np.array(image)
         mask_np = np.array(mask)
         
-        # Normalize mask values to 0-3 (cho 4 lớp)
-        if mask_np.max() > 0:  # Đảm bảo mask không toàn đen
-            # Nếu mask có giá trị lớn (ví dụ: 255), chuẩn hóa về 0-3
-            if mask_np.max() > self.num_classes - 1:
-                # Chia tỷ lệ giá trị pixel để nằm trong khoảng 0 đến 3
-                mask_np = (mask_np / 255.0 * (self.num_classes - 1)).astype(np.int64)
-            
-            # Đảm bảo mask chỉ chứa các giá trị từ 0 đến 3
-            mask_np = np.clip(mask_np, 0, self.num_classes - 1)
+        # Convert mask to binary: 0 for background, 1 for any tumor
+        if mask_np.max() > 0:  # If mask is not completely black
+            # Any non-zero pixel becomes tumor (class 1)
+            mask_np = (mask_np > 0).astype(np.int64)
+        else:
+            # All pixels are background (class 0)
+            mask_np = mask_np.astype(np.int64)
+        
+        # Ensure mask only contains 0 and 1
+        mask_np = np.clip(mask_np, 0, 1)
         
         # Convert to tensors
         image = torch.from_numpy(image_np).float() / 255.0

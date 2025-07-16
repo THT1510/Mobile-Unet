@@ -29,7 +29,7 @@ def main():
     # 1. Initialize model
     model = MobileNetUNet(                         
         img_ch=1,
-        seg_ch=4,
+        seg_ch=2,  # Changed from 4 to 2: background + tumor
         num_classes=3
     ).to(CONFIG['device'])
 
