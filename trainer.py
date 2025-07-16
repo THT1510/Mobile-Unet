@@ -174,12 +174,16 @@ class ModelTrainer:
         
         # Print validation metrics with more decimal places
         if phase == 'val':
-            print(
-                f"- val_accuracy: {epoch_metrics.get('cls_accuracy', 0):.4f} - "
-                f"val_loss: {epoch_metrics['loss_total']:.4f} - "
-                f"val_dice: {epoch_metrics.get('seg_dice', 0):.4f} - "
-                f"val_iou: {epoch_metrics.get('seg_iou', 0):.4f}"
-            )
+            # Build validation metrics string dynamically
+            val_metrics_str = f"val_loss: {epoch_metrics['loss_total']:.4f} - "
+            val_metrics_str += f"val_dice: {epoch_metrics.get('seg_dice', 0):.4f} - "
+            val_metrics_str += f"val_iou: {epoch_metrics.get('seg_iou', 0):.4f}"
+            
+            # Only add accuracy if it exists in metrics
+            if 'cls_accuracy' in epoch_metrics:
+                val_metrics_str = f"val_accuracy: {epoch_metrics['cls_accuracy']:.4f} - " + val_metrics_str
+            
+            print(f"- {val_metrics_str}")
         
         return epoch_metrics
 
