@@ -18,6 +18,80 @@ class SegmentationDataset(Dataset):
         
         # Create list of (image_path, mask_path) tuples
         self.image_mask_pairs = []
+        self._load_data()
+
+    def _load_data(self):
+        """Load image and mask file pairs from the dataset directories"""
+        if not os.path.exists(self.images_dir):
+            print(f"Warning: Images directory not found: {self.images_dir}")
+            return
+        
+        if not os.path.exists(self.masks_dir):
+            print(f"Warning: Masks directory not found: {self.masks_dir}")
+            return
+        
+        # Check if the directory structure includes class subdirectories
+        if os.path.isdir(os.path.join(self.images_dir, '0')):
+            # Structure: dataset_split/train/image/0/, dataset_split/train/image/1/, etc.
+            self._load_data_with_classes()
+        else:
+            # Structure: dataset_split/train/image/, dataset_split/train/mask/ (flat structure)
+            self._load_data_flat()
+    
+    def _load_data_with_classes(self):
+        """Load data when organized in class subdirectories"""
+        # Binary classification: 0 = no tumor, 1 = tumor
+        class_dirs = ['0', '1']
+        
+        for class_name in class_dirs:
+            img_class_dir = os.path.join(self.images_dir, class_name)
+            mask_class_dir = os.path.join(self.masks_dir, class_name)
+            
+            if os.path.exists(img_class_dir) and os.path.exists(mask_class_dir):
+                img_files = sorted([f for f in os.listdir(img_class_dir) 
+                                  if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
+                
+                for img_file in img_files:
+                    img_path = os.path.join(img_class_dir, img_file)
+                    
+                    # Create mask filename by adding '_m' before the extension
+                    name_without_ext = os.path.splitext(img_file)[0]
+                    ext = os.path.splitext(img_file)[1]
+                    mask_file = name_without_ext + '_m' + ext
+                    mask_path = os.path.join(mask_class_dir, mask_file)
+                    
+                    if os.path.exists(mask_path):
+                        self.image_mask_pairs.append((img_path, mask_path))
+                    else:
+                        # Try original filename as fallback
+                        fallback_mask_path = os.path.join(mask_class_dir, img_file)
+                        if os.path.exists(fallback_mask_path):
+                            self.image_mask_pairs.append((img_path, fallback_mask_path))
+    
+    def _load_data_flat(self):
+        """Load data from flat directory structure"""
+        if not os.path.exists(self.images_dir) or not os.path.exists(self.masks_dir):
+            return
+        
+        img_files = sorted([f for f in os.listdir(self.images_dir) 
+                           if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
+        
+        for img_file in img_files:
+            img_path = os.path.join(self.images_dir, img_file)
+            
+            # Create mask filename by adding '_m' before the extension
+            name_without_ext = os.path.splitext(img_file)[0]
+            ext = os.path.splitext(img_file)[1]
+            mask_file = name_without_ext + '_m' + ext
+            mask_path = os.path.join(self.masks_dir, mask_file)
+            
+            if os.path.exists(mask_path):
+                self.image_mask_pairs.append((img_path, mask_path))
+            else:
+                # Try original filename as fallback
+                fallback_mask_path = os.path.join(self.masks_dir, img_file)
+                if os.path.exists(fallback_mask_path):
+                    self.image_mask_pairs.append((img_path, fallback_mask_path))
 
     def __len__(self):
         return len(self.image_mask_pairs)
@@ -75,6 +149,18 @@ def get_data_loaders(root_dir, batch_size=8, num_workers=4):
         split='val',
         img_size=(256, 256)
     )
+    
+    # Print dataset info
+    print(f"Train dataset: {len(train_dataset)} samples")
+    print(f"Validation dataset: {len(val_dataset)} samples")
+    
+    # Check if datasets are empty
+    if len(train_dataset) == 0:
+        raise ValueError(f"Train dataset is empty! Please check the data directory: {root_dir}")
+    
+    if len(val_dataset) == 0:
+        print(f"Warning: Validation dataset is empty! Using train dataset for validation.")
+        val_dataset = train_dataset
     
     # Create data loaders
     train_loader = DataLoader(

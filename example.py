@@ -12,7 +12,7 @@ from pathlib import Path
 def main():
     # Configuration
     CONFIG = {
-        'data_dir': r"D:\FPT BT\DBM\final project\BrainTumor_Split_mask_aug",
+        'data_dir': r"d:\FPT BT\DSP391\train_model\Mobile-unet\dataset_split",
         'batch_size': 16,
         'num_workers': 5,
         'learning_rate': 0.0025,

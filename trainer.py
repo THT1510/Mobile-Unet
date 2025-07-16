@@ -31,7 +31,12 @@ class ModelTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.metrics = metrics or {}
-        self.task_weights = task_weights
+        
+        # Set default task weights if not provided
+        if task_weights is None:
+            self.task_weights = {'seg': 1.0, 'cls': 1.0}
+        else:
+            self.task_weights = task_weights
 
         # Early stopping parameters
         self.patience = patience
@@ -66,22 +71,42 @@ class ModelTrainer:
         )
         
         with torch.set_grad_enabled(is_train):
-            for batch_idx, (inputs, masks, labels) in pbar:
+            for batch_idx, batch_data in pbar:
+                # Handle both segmentation-only and multi-task cases
+                if len(batch_data) == 2:  # Segmentation only
+                    inputs, masks = batch_data
+                    labels = None
+                else:  # Multi-task (segmentation + classification)
+                    inputs, masks, labels = batch_data
+                
                 # Move data to device
                 inputs = inputs.to(self.device)
                 masks = masks.to(self.device)
-                labels = labels.to(self.device)
+                if labels is not None:
+                    labels = labels.to(self.device)
                 
                 # Forward pass
-                seg_outputs, cls_outputs = self.model(inputs)
+                model_outputs = self.model(inputs)
+                
+                # Handle different output formats
+                if isinstance(model_outputs, tuple):
+                    seg_outputs, cls_outputs = model_outputs
+                else:
+                    seg_outputs = model_outputs
+                    cls_outputs = None
                 
                 # Calculate losses
                 loss_seg = self.criterion_seg(seg_outputs, masks)
-                loss_cls = self.criterion_cls(cls_outputs, labels)
-                loss_total = (
-                    self.task_weights['seg'] * loss_seg + 
-                    self.task_weights['cls'] * loss_cls
-                )
+                
+                if cls_outputs is not None and labels is not None and self.criterion_cls is not None:
+                    loss_cls = self.criterion_cls(cls_outputs, labels)
+                    loss_total = (
+                        self.task_weights['seg'] * loss_seg + 
+                        self.task_weights['cls'] * loss_cls
+                    )
+                else:
+                    loss_cls = torch.tensor(0.0, device=self.device)
+                    loss_total = self.task_weights['seg'] * loss_seg
                 
                 # Backward pass and optimization
                 if is_train:
@@ -99,9 +124,10 @@ class ModelTrainer:
                 for name, metric_fn in self.metrics.items():
                     if name.startswith('seg_'):
                         value = metric_fn(seg_outputs, masks).item()
-                    else:
+                        running_metrics[name] += value
+                    elif cls_outputs is not None and labels is not None:
                         value = metric_fn(cls_outputs, labels).item()
-                    running_metrics[name] += value
+                        running_metrics[name] += value
                 
                 # Calculate averages
                 avg_metrics = {
@@ -116,13 +142,23 @@ class ModelTrainer:
                 current_batch = batch_idx + 1
                 
                 # Format with more decimal places
-                postfix = (
-                    f"{batch_time*1000:.0f}ms/step - "
-                    f"accuracy: {avg_metrics.get('cls_accuracy', 0):.6f} - "
-                    f"dice_coefficient: {avg_metrics.get('seg_dice', 0):.6f} - "
-                    f"iou: {avg_metrics.get('seg_iou', 0):.6f} - "
-                    f"loss: {avg_metrics['loss']:.6f}"
-                )
+                postfix_items = []
+                postfix_items.append(f"{batch_time*1000:.0f}ms/step")
+                
+                # Add segmentation metrics if available
+                if 'seg_dice' in avg_metrics:
+                    postfix_items.append(f"dice_coefficient: {avg_metrics['seg_dice']:.6f}")
+                if 'seg_iou' in avg_metrics:
+                    postfix_items.append(f"iou: {avg_metrics['seg_iou']:.6f}")
+                
+                # Add classification metrics if available
+                if 'cls_accuracy' in avg_metrics:
+                    postfix_items.append(f"accuracy: {avg_metrics['cls_accuracy']:.6f}")
+                
+                # Always show loss
+                postfix_items.append(f"loss: {avg_metrics['loss']:.6f}")
+                
+                postfix = " - ".join(postfix_items)
                 
                 pbar.set_description(f"{current_batch}/{total_batches}")
                 pbar.set_postfix_str(postfix)
