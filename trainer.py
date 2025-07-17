@@ -15,7 +15,8 @@ class ModelTrainer:
         metrics=None,
         device=None,
         patience=5,
-        task_weights={'seg': 1.0, 'cls': 1.0}   
+        task_weights={'seg': 1.0, 'cls': 1.0},
+        wandb_logger=None   
     ):
         # Model and device setup
         self.model = model
@@ -42,6 +43,9 @@ class ModelTrainer:
         self.patience = patience
         self.best_score = float('inf')
         self.counter = 0
+        
+        # W&B logger
+        self.wandb_logger = wandb_logger
 
         # Training history tracking
         self.train_history = {
@@ -213,6 +217,19 @@ class ModelTrainer:
                 train_metrics = self._run_epoch('train')
                 val_metrics = self._run_epoch('val')
                 
+                # ✅ Log metrics to W&B
+                if self.wandb_logger:
+                    self.wandb_logger.log({
+                        "epoch": epoch + 1,
+                        "train_loss": train_metrics['loss_total'],
+                        "train_dice": train_metrics.get('seg_dice', 0),
+                        "train_iou": train_metrics.get('seg_iou', 0),
+                        "val_loss": val_metrics['loss_total'],
+                        "val_dice": val_metrics.get('seg_dice', 0),
+                        "val_iou": val_metrics.get('seg_iou', 0),
+                        "learning_rate": self.optimizer.param_groups[0]['lr']
+                    })
+                
                 # Update training history
                 self._update_history(train_metrics, val_metrics)
                 
@@ -367,6 +384,11 @@ class ModelTrainer:
             # Save model
             torch.save(self.model.state_dict(), save_path)
             print(f"\nEpoch: val_dice_coefficient improved from {self.best_score-improvement:.4f} to {self.best_score:.4f}, saving model to {save_path}")
+            
+            # Log best model to W&B
+            if self.wandb_logger:
+                self.wandb_logger.log({"best_val_dice": self.best_score})
+                
             return False
         
         # If no improvement

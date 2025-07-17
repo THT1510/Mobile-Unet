@@ -8,18 +8,23 @@ from src.model import MobileNetUNet
 from dataset import get_data_loaders
 from trainer import ModelTrainer
 from pathlib import Path
+import wandb
+from wandb_config import init_wandb, log_model_summary, finish_wandb
 
 def main():
+    # ✅ W&B setup using config file
+    run, config = init_wandb()
+    
     # Configuration
     CONFIG = {
         'data_dir': r"d:\FPT BT\DSP391\train_model\Mobile-unet\dataset_split",
-        'batch_size': 16,
+        'batch_size': config.batch_size,
         'num_workers': 4,  # Reduced from 5 to 4 to avoid warning
-        'learning_rate': 0.0025,
-        'num_epochs': 150,
-        'patience': 100,
+        'learning_rate': config.lr,
+        'num_epochs': config.epochs,
+        'patience': config.patience,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'seg_weight': 1.0,  # Only segmentation weight needed
+        'seg_weight': config.seg_weight,  # Only segmentation weight needed
         'save_dir': 'checkpoint_new'  
     }
 
@@ -43,6 +48,9 @@ def main():
     # Check the number of samples in the data loaders
     print(f"Number of training samples: {len(train_loader.dataset)}")
     print(f"Number of validation samples: {len(val_loader.dataset)}")
+    
+    # ✅ Log model summary to W&B
+    log_model_summary(model, input_size=(1, 1, 256, 256))
 
     # 3. Setup metrics
     metrics = create_segmentation_metrics()
@@ -84,7 +92,8 @@ def main():
         patience=CONFIG['patience'],
         task_weights={
             'seg': CONFIG['seg_weight']
-        }
+        },
+        wandb_logger=wandb  # Add wandb logger
     )
 
     # 7. Train the model
@@ -102,7 +111,12 @@ def main():
         'config': CONFIG
     }, final_save_path)
 
+    # ✅ Save model to W&B
+    wandb.save(save_path)
+    wandb.save(final_save_path)
+    
     print("Training completed successfully!")
+    finish_wandb()
 
 if __name__ == "__main__":
     main()
