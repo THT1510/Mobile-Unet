@@ -7,7 +7,7 @@ def init_wandb(project_name="Brain tumor segmentation", entity="baohtse183146-fp
     """
     
     # Login to W&B
-    wandb.login(key="1fe0a6f0c5910c174b564deb439b36b571fdafba")
+    wandb.login(key="c6d810ee5bdf998ffc951ff2f6cd758d2919ad8c")
     
     # Define hyperparameters
     hyperparams = {
@@ -31,7 +31,7 @@ def init_wandb(project_name="Brain tumor segmentation", entity="baohtse183146-fp
         project=project_name,
         entity=entity,
         config=hyperparams,
-        name="MobileUNet_e150_b16_lr0.0025_256x256_mobilenetv2",
+        name="MobileUNet",
         tags=["brain-tumor", "segmentation", "mobile-unet", "medical-imaging"]
     )
     
