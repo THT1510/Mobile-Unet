@@ -6,8 +6,22 @@ def init_wandb(project_name="Brain tumor segmentation", entity="baohtse183146-fp
     Initialize Weights & Biases tracking
     """
     
-    # Login to W&B
-    wandb.login(key="c6d810ee5bdf998ffc951ff2f6cd758d2919ad8c")
+    # Optional: Set custom wandb directory FIRST
+    import os
+    os.makedirs("./logs", exist_ok=True)
+    os.environ["WANDB_DIR"] = "./logs"
+    
+    # Check if already logged in, if not then login
+    try:
+        wandb.login(key="c6d810ee5bdf998ffc951ff2f6cd758d2919ad8c")
+    except Exception as e:
+        print(f"Login warning (can be ignored): {e}")
+    
+    # Finish any existing runs to avoid conflicts
+    try:
+        wandb.finish()
+    except:
+        pass
     
     # Define hyperparameters
     hyperparams = {
